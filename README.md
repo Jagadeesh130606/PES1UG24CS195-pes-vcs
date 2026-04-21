@@ -2,6 +2,7 @@
 
 **Objective:** Build a local version control system that tracks file changes, stores snapshots efficiently, and supports commit history. Every component maps directly to operating system and filesystem concepts.
 
+
 **Platform:** Ubuntu 22.04
 
 ---
@@ -591,9 +592,14 @@ The following questions cover filesystem concepts beyond the implementation scop
 - **Git Internals** (Pro Git book): https://git-scm.com/book/en/v2/Git-Internals-Plumbing-and-Porcelain
 - **Git from the inside out**: https://codewords.recurse.com/issues/two/git-from-the-inside-out
 - **The Git Parable**: https://tom.preston-werner.com/2009/05/19/the-git-parable.html
-P r o j e c t  
- s e t u p  
- c o m p l e t e  
- F i n a l  
- u p d a t e  
+P r o j e c t 
+ 
+ s e t u p 
+ 
+ c o m p l e t e 
+ 
+ F i n a l 
+ 
+ u p d a t e 
+ 
  

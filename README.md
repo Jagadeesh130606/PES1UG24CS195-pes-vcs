@@ -84,6 +84,7 @@ Your project at commit A:          Your project at commit B:
                         └─────────────────────────────────────────────┘
 ```
 
+
 ### The Three Object Types
 
 #### 1. Blob (Binary Large Object)

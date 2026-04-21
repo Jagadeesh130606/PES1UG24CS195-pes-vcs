@@ -1,7 +1,6 @@
-# Building PES-VCS — A Version Control System from Scratch
+# PES-VCS — A Version Control System from Scratch
 
 **Objective:** Build a local version control system that tracks file changes, stores snapshots efficiently, and supports commit history. Every component maps directly to operating system and filesystem concepts.
-
 
 **Platform:** Ubuntu 22.04
 
@@ -14,7 +13,6 @@
 ```bash
 sudo apt update && sudo apt install -y gcc build-essential libssl-dev
 ```
-
 
 ### Building
 
@@ -29,28 +27,28 @@ make clean    # Remove all build artifacts
 PES-VCS reads the author name from the `PES_AUTHOR` environment variable:
 
 ```bash
-export PES_AUTHOR="Jagadeesh  <PES1UG24CS195>"
+export PES_AUTHOR="Jagadeesh <PES1UG24CS195>"
 ```
 
 If unset, it defaults to `"PES User <pes@localhost>"`.
 
 ### File Inventory
 
-| File               | Role                                 | Your Task                                          |
-| ------------------ | ------------------------------------ | -------------------------------------------------- |
-| `pes.h`            | Core data structures and constants   | Do not modify                                      |
-| `object.c`         | Content-addressable object store     | Implement `object_write`, `object_read`            |
-| `tree.h`           | Tree object interface                | Do not modify                                      |
-| `tree.c`           | Tree serialization and construction  | Implement `tree_from_index`                        |
-| `index.h`          | Staging area interface               | Do not modify                                      |
-| `index.c`          | Staging area (text-based index file) | Implement `index_load`, `index_save`, `index_add`  |
-| `commit.h`         | Commit object interface              | Do not modify                                      |
-| `commit.c`         | Commit creation and history          | Implement `commit_create`                          |
-| `pes.c`            | CLI entry point and command dispatch | Do not modify                                      |
-| `test_objects.c`   | Phase 1 test program                 | Do not modify                                      |
-| `test_tree.c`      | Phase 2 test program                 | Do not modify                                      |
-| `test_sequence.sh` | End-to-end integration test          | Do not modify                                      |
-| `Makefile`         | Build system                         | Do not modify                                      |
+| File | Role | Your Task |
+|------|------|-----------|
+| `pes.h` | Core data structures and constants | Do not modify |
+| `object.c` | Content-addressable object store | Implement `object_write`, `object_read` |
+| `tree.h` | Tree object interface | Do not modify |
+| `tree.c` | Tree serialization and construction | Implement `tree_from_index` |
+| `index.h` | Staging area interface | Do not modify |
+| `index.c` | Staging area (text-based index file) | Implement `index_load`, `index_save`, `index_add` |
+| `commit.h` | Commit object interface | Do not modify |
+| `commit.c` | Commit creation and history | Implement `commit_create` |
+| `pes.c` | CLI entry point and command dispatch | Do not modify |
+| `test_objects.c` | Phase 1 test program | Do not modify |
+| `test_tree.c` | Phase 2 test program | Do not modify |
+| `test_sequence.sh` | End-to-end integration test | Do not modify |
+| `Makefile` | Build system | Do not modify |
 
 ---
 
@@ -60,36 +58,34 @@ Before writing code, understand how Git works under the hood. Git is a content-a
 
 ### The Big Picture
 
-When you run `git commit`, Git doesn't store "changes" or "diffs." It stores **complete snapshots** of your entire project. Git uses two tricks to make this efficient:
+When you run `git commit`, Git doesn't store "changes" or "diffs." It stores **complete snapshots** of your entire project using two key tricks:
 
 1. **Content-addressable storage:** Every file is stored by the SHA hash of its contents. Same content = same hash = stored only once.
 2. **Tree structures:** Directories are stored as "tree" objects that point to file contents, so unchanged files are just pointers to existing data.
 
 ```
-Your project at commit A:          Your project at commit B:
-                                   (only README changed)
+Your project at commit A:          Your project at commit B (only README changed):
 
     root/                              root/
-    ├── README.md  ─────┐              ├── README.md  ─────┐
-    ├── src/            │              ├── src/            │
-    │   └── main.c ─────┼─┐            │   └── main.c ─────┼─┐
-    └── Makefile ───────┼─┼─┐          └── Makefile ───────┼─┼─┐
-                        │ │ │                              │ │ │
-                        ▼ ▼ ▼                              ▼ ▼ ▼
-    Object Store:       ┌─────────────────────────────────────────────┐
-                        │  a1b2c3 (README v1)    ← only this is new   │
-                        │  d4e5f6 (README v2)                         │
-                        │  789abc (main.c)       ← shared by both!    │
-                        │  fedcba (Makefile)     ← shared by both!    │
-                        └─────────────────────────────────────────────┘
+    ├── README.md  ──┐                 ├── README.md  ──┐
+    ├── src/         │                 ├── src/         │
+    │   └── main.c ──┼─┐              │   └── main.c ──┼─┐
+    └── Makefile ────┼─┼─┐            └── Makefile ────┼─┼─┐
+                     │ │ │                             │ │ │
+                     ▼ ▼ ▼                             ▼ ▼ ▼
+    Object Store:  ┌──────────────────────────────────────────┐
+                   │  a1b2c3 (README v1)  ← only this is new  │
+                   │  d4e5f6 (README v2)                      │
+                   │  789abc (main.c)     ← shared by both!   │
+                   │  fedcba (Makefile)   ← shared by both!   │
+                   └──────────────────────────────────────────┘
 ```
-
 
 ### The Three Object Types
 
 #### 1. Blob (Binary Large Object)
 
-A blob is just file contents. No filename, no permissions — just the raw bytes.
+A blob is just file contents — no filename, no permissions, just raw bytes.
 
 ```
 blob 16\0Hello, World!\n
@@ -98,20 +94,16 @@ blob 16\0Hello, World!\n
      └─────── Size in bytes
 ```
 
-The blob is stored at a path determined by its SHA-256 hash. If two files have identical contents, they share one blob.
+If two files have identical contents, they share one blob.
 
 #### 2. Tree
 
-A tree represents a directory. It's a list of entries, each pointing to a blob (file) or another tree (subdirectory).
+A tree represents a directory — a list of entries, each pointing to a blob (file) or another tree (subdirectory).
 
 ```
 100644 blob a1b2c3d4... README.md
 100755 blob e5f6a7b8... build.sh        ← executable file
 040000 tree 9c0d1e2f... src             ← subdirectory
-       ↑    ↑           ↑
-       │    │           └── name
-       │    └── hash of the object
-       └─────── mode (permissions + type)
 ```
 
 Mode values:
@@ -121,13 +113,12 @@ Mode values:
 
 #### 3. Commit
 
-A commit ties everything together. It points to a tree (the project snapshot) and contains metadata.
+A commit ties everything together — it points to a tree (the project snapshot) and contains metadata.
 
 ```
 tree 9c0d1e2f3a4b5c6d7e8f9a0b1c2d3e4f5a6b7c8d
 parent a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6e7f8a9b0
 author Alice <alice@example.com> 1699900000
-committer Alice <alice@example.com> 1699900000
 
 Add new feature
 ```
@@ -135,42 +126,43 @@ Add new feature
 The parent pointer creates a linked list of history:
 
 ```
-    C3 ──────► C2 ──────► C1 ──────► (no parent)
-    │          │          │
-    ▼          ▼          ▼
-  Tree3      Tree2      Tree1
+C3 ──► C2 ──► C1 ──► (no parent)
+│      │      │
+▼      ▼      ▼
+Tree3  Tree2  Tree1
 ```
 
 ### How Objects Connect
 
 ```
-                    ┌─────────────────────────────────┐
-                    │           COMMIT                │
-                    │  tree: 7a3f...                  │
-                    │  parent: 4b2e...                │
-                    │  author: Alice                  │
-                    │  message: "Add feature"         │
-                    └─────────────┬───────────────────┘
-                                  │
-                                  ▼
-                    ┌─────────────────────────────────┐
-                    │         TREE (root)             │
-                    │  100644 blob f1a2... README.md  │
-                    │  040000 tree 8b3c... src        │
-                    │  100644 blob 9d4e... Makefile   │
-                    └──────┬──────────┬───────────────┘
-                           │          │
-              ┌────────────┘          └────────────┐
-              ▼                                    ▼
-┌─────────────────────────┐          ┌─────────────────────────┐
-│      TREE (src)         │          │     BLOB (README.md)    │
-│ 100644 blob a5f6 main.c │          │  # My Project           │
-└───────────┬─────────────┘          └─────────────────────────┘
-            ▼
-       ┌────────┐
-       │ BLOB   │
-       │main.c  │
-       └────────┘
+              ┌──────────────────────────────────┐
+              │             COMMIT               │
+              │  tree:    7a3f...                │
+              │  parent:  4b2e...                │
+              │  author:  Alice                  │
+              │  message: "Add feature"          │
+              └─────────────┬────────────────────┘
+                            │
+                            ▼
+              ┌──────────────────────────────────┐
+              │          TREE (root)             │
+              │  100644 blob f1a2... README.md   │
+              │  040000 tree 8b3c... src         │
+              │  100644 blob 9d4e... Makefile    │
+              └──────┬───────────────┬───────────┘
+                     │               │
+           ┌─────────┘               └─────────┐
+           ▼                                   ▼
+┌──────────────────────┐         ┌─────────────────────────┐
+│      TREE (src)      │         │    BLOB (README.md)     │
+│ 100644 blob a5f6     │         │  # My Project           │
+│         main.c       │         └─────────────────────────┘
+└──────────┬───────────┘
+           ▼
+      ┌──────────┐
+      │   BLOB   │
+      │  main.c  │
+      └──────────┘
 ```
 
 ### References and HEAD
@@ -192,9 +184,8 @@ References are files that map human-readable names to commit hashes:
 3. HEAD still points to the branch, so it "follows" automatically
 
 ```
-Before commit:                    After commit:
-
-HEAD ─► main ─► C2 ─► C1         HEAD ─► main ─► C3 ─► C2 ─► C1
+Before commit:  HEAD ─► main ─► C2 ─► C1
+After commit:   HEAD ─► main ─► C3 ─► C2 ─► C1
 ```
 
 ### The Index (Staging Area)
@@ -202,15 +193,14 @@ HEAD ─► main ─► C2 ─► C1         HEAD ─► main ─► C3 ─► C
 The index is the "preparation area" for the next commit. It tracks which files are staged.
 
 ```
-Working Directory          Index               Repository (HEAD)
-─────────────────         ─────────           ─────────────────
-README.md (modified) ──── pes add ──► README.md (staged)
-src/main.c                            src/main.c          ──► Last commit's
-Makefile                               Makefile                snapshot
+Working Directory           Index                Repository (HEAD)
+─────────────────           ─────                ─────────────────
+README.md (modified)  ──►   README.md (staged)
+src/main.c                  src/main.c      ──►  Last commit's snapshot
+Makefile                    Makefile
 ```
 
 The workflow:
-
 1. `pes add file.txt` → computes blob hash, stores blob, updates index
 2. `pes commit -m "msg"` → builds tree from index, creates commit, updates branch ref
 
@@ -254,11 +244,11 @@ mkdir test-repo && cd test-repo && git init
 echo "Hello" > hello.txt
 git add hello.txt && git commit -m "First commit"
 
-find .git/objects -type f          # See stored objects
-git cat-file -t <hash>            # Show type: blob, tree, or commit
-git cat-file -p <hash>            # Show contents
-cat .git/HEAD                     # See what HEAD points to
-cat .git/refs/heads/main          # See branch pointer
+find .git/objects -type f      # See stored objects
+git cat-file -t <hash>         # Show type: blob, tree, or commit
+git cat-file -p <hash>         # Show contents
+cat .git/HEAD                  # See what HEAD points to
+cat .git/refs/heads/main       # See branch pointer
 ```
 
 ---
@@ -280,52 +270,52 @@ The `.pes/` directory structure:
 ```
 my_project/
 ├── .pes/
-│   ├── objects/          # Content-addressable blob/tree/commit storage
+│   ├── objects/              # Content-addressable storage
 │   │   ├── 2f/
-│   │   │   └── 8a3b...   # Sharded by first 2 hex chars of hash
+│   │   │   └── 8a3b...       # Sharded by first 2 hex chars
 │   │   └── a1/
 │   │       └── 9c4e...
 │   ├── refs/
 │   │   └── heads/
-│   │       └── main      # Branch pointer (file containing commit hash)
-│   ├── index             # Staging area (text file)
-│   └── HEAD              # Current branch reference
+│   │       └── main          # Branch pointer (commit hash)
+│   ├── index                 # Staging area (text file)
+│   └── HEAD                  # Current branch reference
 └── (working directory files)
 ```
 
 ### Architecture Overview
 
 ```
-┌───────────────────────────────────────────────────────────────┐
-│                      WORKING DIRECTORY                        │
-│                  (actual files you edit)                       │
-└───────────────────────────────────────────────────────────────┘
-                              │
-                        pes add <file>
-                              ▼
-┌───────────────────────────────────────────────────────────────┐
-│                           INDEX                               │
-│                (staged changes, ready to commit)              │
-│                100644 a1b2c3... src/main.c                    │
-└───────────────────────────────────────────────────────────────┘
-                              │
-                       pes commit -m "msg"
-                              ▼
-┌───────────────────────────────────────────────────────────────┐
-│                       OBJECT STORE                            │
-│  ┌───────┐    ┌───────┐    ┌────────┐                         │
-│  │ BLOB  │◄───│ TREE  │◄───│ COMMIT │                         │
-│  │(file) │    │(dir)  │    │(snap)  │                         │
-│  └───────┘    └───────┘    └────────┘                         │
-│  Stored at: .pes/objects/XX/YYY...                            │
-└───────────────────────────────────────────────────────────────┘
-                              │
-                              ▼
-┌───────────────────────────────────────────────────────────────┐
-│                           REFS                                │
-│       .pes/refs/heads/main  →  commit hash                    │
-│       .pes/HEAD             →  "ref: refs/heads/main"         │
-└───────────────────────────────────────────────────────────────┘
+┌─────────────────────────────────────────┐
+│           WORKING DIRECTORY             │
+│         (actual files you edit)         │
+└─────────────────────────────────────────┘
+                    │
+              pes add <file>
+                    ▼
+┌─────────────────────────────────────────┐
+│                 INDEX                   │
+│      (staged changes, ready to commit)  │
+│      100644 a1b2c3... src/main.c        │
+└─────────────────────────────────────────┘
+                    │
+             pes commit -m "msg"
+                    ▼
+┌─────────────────────────────────────────┐
+│             OBJECT STORE                │
+│   ┌──────┐  ┌──────┐  ┌────────┐       │
+│   │ BLOB │◄─│ TREE │◄─│ COMMIT │       │
+│   │(file)│  │(dir) │  │(snap)  │       │
+│   └──────┘  └──────┘  └────────┘       │
+│   Stored at: .pes/objects/XX/YYY...    │
+└─────────────────────────────────────────┘
+                    │
+                    ▼
+┌─────────────────────────────────────────┐
+│                  REFS                   │
+│  .pes/refs/heads/main → commit hash     │
+│  .pes/HEAD → "ref: refs/heads/main"     │
+└─────────────────────────────────────────┘
 ```
 
 ---
@@ -340,16 +330,16 @@ my_project/
 
 Open `object.c`. Two functions are marked `// TODO`:
 
-1. **`object_write`** — Stores data in the object store.
-   - Prepends a type header (`"blob <size>\0"`, `"tree <size>\0"`, or `"commit <size>\0"`)
-   - Computes SHA-256 of the full object (header + data)
-   - Writes atomically using the temp-file-then-rename pattern
-   - Shards into subdirectories by first 2 hex chars of hash
+**`object_write`** — Stores data in the object store:
+- Prepends a type header (`"blob <size>\0"`, `"tree <size>\0"`, or `"commit <size>\0"`)
+- Computes SHA-256 of the full object (header + data)
+- Writes atomically using the temp-file-then-rename pattern
+- Shards into subdirectories by first 2 hex chars of hash
 
-2. **`object_read`** — Retrieves and verifies data from the object store.
-   - Reads the file, parses the header to extract type and size
-   - **Verifies integrity** by recomputing the hash and comparing to the filename
-   - Returns the data portion (after the `\0`)
+**`object_read`** — Retrieves and verifies data from the object store:
+- Reads the file, parses the header to extract type and size
+- Verifies integrity by recomputing the hash and comparing to the filename
+- Returns the data portion (after the `\0`)
 
 Read the detailed step-by-step comments in `object.c` before starting.
 
@@ -360,16 +350,16 @@ make test_objects
 ./test_objects
 ```
 
-The test program verifies:
-- Blob storage and retrieval (write, read back, compare)
-- Deduplication (same content → same hash → stored once)
-- Integrity checking (detects corrupted objects)
+The test program verifies blob storage and retrieval, deduplication, and integrity checking.
 
-**📸 Screenshot 1A:** Output of `./test_objects` showing all tests passing.
+**Screenshot 1A:** Output of `./test_objects` showing all tests passing.
+
 ![1A](Screenshots/1A.png)
 
-**📸 Screenshot 1B:** `find .pes/objects -type f` showing the sharded directory structure.
+**Screenshot 1B:** `find .pes/objects -type f` showing the sharded directory structure.
+
 ![1B](Screenshots/1B.png)
+
 ---
 
 ## Phase 2: Tree Objects
@@ -382,10 +372,10 @@ The test program verifies:
 
 Open `tree.c`. Implement the function marked `// TODO`:
 
-1. **`tree_from_index`** — Builds a tree hierarchy from the index.
-   - Handles nested paths: `"src/main.c"` must create a `src` subtree
-   - This is what `pes commit` uses to create the snapshot
-   - Writes all tree objects to the object store and returns the root hash
+**`tree_from_index`** — Builds a tree hierarchy from the index:
+- Handles nested paths: `"src/main.c"` must create a `src` subtree
+- This is what `pes commit` uses to create the snapshot
+- Writes all tree objects to the object store and returns the root hash
 
 ### Testing
 
@@ -394,15 +384,16 @@ make test_tree
 ./test_tree
 ```
 
-The test program verifies:
-- Serialize → parse roundtrip preserves entries, modes, and hashes
-- Deterministic serialization (same entries in any order → identical output)
+The test program verifies serialize → parse roundtrip and deterministic serialization.
 
-**📸 Screenshot 2A:** Output of `./test_tree` showing all tests passing.
+**Screenshot 2A:** Output of `./test_tree` showing all tests passing.
+
 ![2A](Screenshots/2A.png)
 
-**📸 Screenshot 2B:** Pick a tree object from `find .pes/objects -type f` and run `xxd .pes/objects/XX/YYY... | head -20` to show the raw binary format.
+**Screenshot 2B:** `xxd .pes/objects/XX/YYY... | head -20` showing the raw binary tree format.
+
 ![2B](Screenshots/2B.png)
+
 ---
 
 ## Phase 3: The Index (Staging Area)
@@ -415,18 +406,18 @@ The test program verifies:
 
 Open `index.c`. Three functions are marked `// TODO`:
 
-1. **`index_load`** — Reads the text-based `.pes/index` file into an `Index` struct.
-   - If the file doesn't exist, initializes an empty index (this is not an error)
-   - Parses each line: `<mode> <hash-hex> <mtime> <size> <path>`
+**`index_load`** — Reads the `.pes/index` file into an `Index` struct:
+- If the file doesn't exist, initializes an empty index (not an error)
+- Parses each line: `<mode> <hash-hex> <mtime> <size> <path>`
 
-2. **`index_save`** — Writes the index atomically (temp file + rename).
-   - Sorts entries by path before writing
-   - Uses `fsync()` on the temp file before renaming
+**`index_save`** — Writes the index atomically (temp file + rename):
+- Sorts entries by path before writing
+- Uses `fsync()` on the temp file before renaming
 
-3. **`index_add`** — Stages a file: reads it, writes blob to object store, updates index entry.
-   - Use the provided `index_find` to check for an existing entry
+**`index_add`** — Stages a file: reads it, writes blob to object store, updates index entry:
+- Use the provided `index_find` to check for an existing entry
 
-`index_find` , `index_status` and `index_remove` are already implemented for you — read them to understand the index data structure before starting.
+`index_find`, `index_status`, and `index_remove` are already implemented — read them to understand the data structure before starting.
 
 #### Expected Output of `pes status`
 
@@ -454,13 +445,17 @@ echo "hello" > file1.txt
 echo "world" > file2.txt
 ./pes add file1.txt file2.txt
 ./pes status
-cat .pes/index    # Human-readable text format
+cat .pes/index
 ```
 
-**📸 Screenshot 3A:** Run `./pes init`, `./pes add file1.txt file2.txt`, `./pes status` — show the output.
+**Screenshot 3A:** `./pes init` → `./pes add file1.txt file2.txt` → `./pes status` output.
+
 ![3A](Screenshots/3A.png)
-**📸 Screenshot 3B:** `cat .pes/index` showing the text-format index with your entries.
+
+**Screenshot 3B:** `cat .pes/index` showing the text-format index with your entries.
+
 ![3B](Screenshots/3B.png)
+
 ---
 
 ## Phase 4: Commits and History
@@ -473,15 +468,13 @@ cat .pes/index    # Human-readable text format
 
 Open `commit.c`. One function is marked `// TODO`:
 
-1. **`commit_create`** — The main commit function:
-   - Builds a tree from the index using `tree_from_index()` (**not** from the working directory — commits snapshot the staged state)
-   - Reads current HEAD as the parent (may not exist for first commit)
-   - Gets the author string from `pes_author()` (defined in `pes.h`)
-   - Writes the commit object, then updates HEAD
+**`commit_create`** — The main commit function:
+- Builds a tree from the index using `tree_from_index()` (commits snapshot the **staged** state, not the working directory)
+- Reads current HEAD as the parent (may not exist for first commit)
+- Gets the author string from `pes_author()` (defined in `pes.h`)
+- Writes the commit object, then updates HEAD
 
-`commit_parse`, `commit_serialize`, `commit_walk`, `head_read`, and `head_update` are already implemented — read them to understand the commit format before writing `commit_create`.
-
-The commit text format is specified in the comment at the top of `commit.c`.
+`commit_parse`, `commit_serialize`, `commit_walk`, `head_read`, and `head_update` are already implemented — read them before writing `commit_create`.
 
 ### Testing
 
@@ -508,17 +501,23 @@ You can also run the full integration test:
 make test-integration
 ```
 
-**📸 Screenshot 4A:** Output of `./pes log` showing three commits with hashes, authors, timestamps, and messages.
+**Screenshot 4A:** `./pes log` output showing three commits with hashes, authors, timestamps, and messages.
+
 ![4A](Screenshots/4A.jpeg)
-**📸 Screenshot 4B:** `find .pes -type f | sort` showing object store growth after three commits.
+
+**Screenshot 4B:** `find .pes -type f | sort` showing object store growth after three commits.
+
 ![4B](Screenshots/4B.jpeg)
-**📸 Screenshot 4C:** `cat .pes/refs/heads/main` and `cat .pes/HEAD` showing the reference chain.
+
+**Screenshot 4C:** `cat .pes/refs/heads/main` and `cat .pes/HEAD` showing the reference chain.
+
 ![4C](Screenshots/4C.jpeg)
+
 ---
 
-## Phase 5 & 6: Analysis-Only Questions
+## Phase 5 & 6: Analysis Questions
 
-The following questions cover filesystem concepts beyond the implementation scope of this lab. Answer them in writing — no code required.
+Answer the following in writing — no code required.
 
 ### Branching and Checkout
 
@@ -528,9 +527,9 @@ The following questions cover filesystem concepts beyond the implementation scop
 
 **Q5.3:** "Detached HEAD" means HEAD contains a commit hash directly instead of a branch reference. What happens if you make commits in this state? How could a user recover those commits?
 
-### Garbage Collection and Space Reclamation
+### Garbage Collection
 
-**Q6.1:** Over time, the object store accumulates unreachable objects — blobs, trees, or commits that no branch points to (directly or transitively). Describe an algorithm to find and delete these objects. What data structure would you use to track "reachable" hashes efficiently? For a repository with 100,000 commits and 50 branches, estimate how many objects you'd need to visit.
+**Q6.1:** Over time, the object store accumulates unreachable objects — blobs, trees, or commits that no branch points to. Describe an algorithm to find and delete these objects. What data structure would you use to track "reachable" hashes efficiently? For a repository with 100,000 commits and 50 branches, estimate how many objects you'd need to visit.
 
 **Q6.2:** Why is it dangerous to run garbage collection concurrently with a commit operation? Describe a race condition where GC could delete an object that a concurrent commit is about to reference. How does Git's real GC avoid this?
 
@@ -540,67 +539,56 @@ The following questions cover filesystem concepts beyond the implementation scop
 
 ### Screenshots Required
 
-| Phase | ID  | What to Capture                                                 |
-| ----- | --- | --------------------------------------------------------------- |
-| 1     | 1A  | `./test_objects` output showing all tests passing               |
-| 1     | 1B  | `find .pes/objects -type f` showing sharded directory structure |
-| 2     | 2A  | `./test_tree` output showing all tests passing                  |
-| 2     | 2B  | `xxd` of a raw tree object (first 20 lines)                    |
-| 3     | 3A  | `pes init` → `pes add` → `pes status` sequence                 |
-| 3     | 3B  | `cat .pes/index` showing the text-format index                  |
-| 4     | 4A  | `pes log` output with three commits                            |
-| 4     | 4B  | `find .pes -type f \| sort` showing object growth              |
-| 4     | 4C  | `cat .pes/refs/heads/main` and `cat .pes/HEAD`                 |
-| Final | --  | Full integration test (`make test-integration`)                 |
+| Phase | ID | What to Capture |
+|-------|----|-----------------|
+| 1 | 1A | `./test_objects` output showing all tests passing |
+| 1 | 1B | `find .pes/objects -type f` showing sharded directory structure |
+| 2 | 2A | `./test_tree` output showing all tests passing |
+| 2 | 2B | `xxd` of a raw tree object (first 20 lines) |
+| 3 | 3A | `pes init` → `pes add` → `pes status` sequence |
+| 3 | 3B | `cat .pes/index` showing the text-format index |
+| 4 | 4A | `pes log` output with three commits |
+| 4 | 4B | `find .pes -type f \| sort` showing object growth |
+| 4 | 4C | `cat .pes/refs/heads/main` and `cat .pes/HEAD` |
+| Final | -- | Full integration test (`make test-integration`) |
 
-### Code Files Required (5 files)
+### Code Files Required
 
-| File           | Description                              |
-| -------------- | ---------------------------------------- |
-| `object.c`     | Object store implementation              |
-| `tree.c`       | Tree serialization and construction      |
-| `index.c`      | Staging area implementation              |
-| `commit.c`     | Commit creation and history walking      |
+| File | Description |
+|------|-------------|
+| `object.c` | Object store implementation |
+| `tree.c` | Tree serialization and construction |
+| `index.c` | Staging area implementation |
+| `commit.c` | Commit creation and history walking |
 
-### Analysis Questions (written answers)
+### Analysis Questions
 
-| Section                   | Questions        |
-| ------------------------- | ---------------- |
+| Section | Questions |
+|---------|-----------|
 | Branching (analysis-only) | Q5.1, Q5.2, Q5.3 |
-| GC (analysis-only)        | Q6.1, Q6.2       |
+| GC (analysis-only) | Q6.1, Q6.2 |
 
------------
+---
 
 ## Submission Requirements
 
 **1. GitHub Repository**
-* You must submit the link to your GitHub repository via the official submission link (which will be shared by your respective faculty).
-* The repository must strictly maintain the directory structure you built throughout this lab.
-* Ensure your github repository is made `public`
+- Submit the link to your GitHub repository via the official submission link shared by your faculty
+- The repository must strictly maintain the directory structure built throughout this lab
+- Ensure your repository is set to **public**
 
 **2. Lab Report**
-* Your report, containing all required **screenshots** and answers to the **analysis questions**, must be placed at the **root** of your repository directory.
-* The report must be submitted as either a PDF (`report.pdf`) or a Markdown file (`README.md`).
+- Place your report (screenshots + analysis answers) at the **root** of your repository
+- Submit as either `report.pdf` or `README.md`
 
-**3. Commit History (Graded Requirement)**
-* **Minimum Requirement:** You must have a minimum of **5 commits per phase** with appropriate commit messages. Submitting fewer than 5 commits for any given phase will result in a deduction of marks.
-* **Best Practices:** We highly prefer more than 5 detailed commits per phase. Granular commits that clearly show the delta in code block changes allow us to verify your step-by-step understanding of the concepts and prevent penalties <3
+**3. Commit History (Graded)**
+- **Minimum:** 5 commits per phase with appropriate commit messages
+- **Preferred:** More than 5 granular commits per phase that clearly show step-by-step changes
 
 ---
 
 ## Further Reading
 
-- **Git Internals** (Pro Git book): https://git-scm.com/book/en/v2/Git-Internals-Plumbing-and-Porcelain
-- **Git from the inside out**: https://codewords.recurse.com/issues/two/git-from-the-inside-out
-- **The Git Parable**: https://tom.preston-werner.com/2009/05/19/the-git-parable.html
-P r o j e c t 
- 
- s e t u p 
- 
- c o m p l e t e 
- 
- F i n a l 
- 
- u p d a t e 
- 
- 
+- [Git Internals — Pro Git Book](https://git-scm.com/book/en/v2/Git-Internals-Plumbing-and-Porcelain)
+- [Git from the Inside Out](https://codewords.recurse.com/issues/two/git-from-the-inside-out)
+- [The Git Parable](https://tom.preston-werner.com/2009/05/19/the-git-parable.html)

@@ -453,6 +453,7 @@ cat .pes/index
 ![3A](Screenshots/3A.png)
 
 **Screenshot 3B:** `cat .pes/index` showing the text-format index with your entries.
+"my ubuntu CRASHED so i CONTINUED REST PROCESS IN MY FRNDS LAPTOP UNDER MY SRN"
 
 ![3B](Screenshots/3B.png)
 
